@@ -49,38 +49,43 @@ jobs:
       with:
         node-version: '16'
         
-    - name: Install Cordova and available Android platform
+    - name: Install Cordova and Android platform
       run: |
-        # 使用 Cordova 10（稳定且可用的版本）
+        # 使用 Cordova 10
         npm install -g cordova@10.0.0
         
         # 清理旧平台
         rm -rf platforms/android plugins
         
-        # 添加可用的 Android 平台版本
-        echo "尝试添加 Android 平台..."
-        cordova platform add android@9.1.0 || \
-        cordova platform add android@9.0.0 || \
-        cordova platform add android@8.1.0 || \
-        cordova platform add android
+        # 添加 Android 平台
+        cordova platform add android@9.1.0
         
-    - name: Force compatible Gradle version
+        echo "✅ Android 平台添加完成"
+        
+    - name: Setup Gradle wrapper
       run: |
-        echo "🔧 设置兼容的 Gradle 版本..."
+        echo "🔧 设置 Gradle wrapper..."
         
         if [ -d "platforms/android" ]; then
           cd platforms/android
           
-          # 设置 Gradle 7.5（与 Cordova Android 9+ 兼容）
+          # 确保目录存在
+          mkdir -p gradle/wrapper
+          
+          # 创建 Gradle wrapper 配置
           cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
-        distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip
-        zipStoreBase=GRADLE_USER_HOME
-        zipStorePath=wrapper/dists
-        EOF
+          distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
           
           echo "✅ Gradle wrapper 配置完成"
+          
+          # 验证配置
+          echo "Gradle wrapper 配置内容:"
+          cat gradle/wrapper/gradle-wrapper.properties
         else
           echo "❌ platforms/android 目录不存在"
           exit 1
