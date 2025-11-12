@@ -11,34 +11,57 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup environment
-      run: |
-        # 安装必要软件
-        sudo apt-get update
-        sudo apt-get install -y openjdk-11-jdk wget unzip
+    - name: Install Java
+      run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk
         
-        # 下载 Android SDK
+    - name: Download and setup Android SDK
+      run: |
+        # 下载 Android 命令行工具
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        mkdir -p android-sdk
-        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/
+        
+        # 创建正确的目录结构
+        mkdir -p android-sdk/cmdline-tools/latest
+        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/cmdline-tools/latest/
+        
+        # 验证文件结构
+        echo "Android SDK 目录内容:"
+        find android-sdk -name "sdkmanager" -type f
         
         # 设置环境变量
         echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
-        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/bin" >> $GITHUB_PATH
+        echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
         
-        # 安装 Android 组件
-        yes | sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
-        sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+    - name: Setup Android PATH
+      run: |
+        # 将 Android 工具添加到 PATH
+        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
         
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+        # 验证 sdkmanager 是否可用
+        echo "检查 sdkmanager 路径:"
+        which sdkmanager || echo "sdkmanager 不在 PATH 中"
+        echo "直接路径测试:"
+        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager --version || echo "直接路径失败"
+        
+    - name: Install Android components
+      run: |
+        # 使用完整路径运行 sdkmanager
+        SDKMANAGER="$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager"
+        
+        # 接受许可证
+        yes | $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
+        
+        # 安装 Android 组件
+        $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools"
+        $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk "platforms;android-31"
+        $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;31.0.0"
+        
+    - uses: actions/setup-node@v4
       with:
         node-version: '18'
         
-    - name: Build app
+    - name: Build with Cordova
       run: |
-        # 安装 Cordova 并构建
         npm install -g cordova
         cordova platform add android
         cordova build android --release
