@@ -11,14 +11,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Java
-      run: sudo apt-get update && sudo apt-get install -y openjdk-8-jdk
+    - name: Install correct Java version
+      run: |
+        # 安装 Java 11（Gradle 6.5 兼容的版本）
+        sudo apt-get update
+        sudo apt-get install -y openjdk-11-jdk
+        
+        # 设置 JAVA_HOME
+        echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
         
     - name: Setup Android SDK
       run: |
-        # 使用较新的 Android SDK 版本
+        # 下载 Android SDK
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         
+        # 解压
         unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/
         
         echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
@@ -35,52 +42,34 @@ jobs:
         
     - uses: actions/setup-node@v4
       with:
-        node-version: '16'
+        node-version: '18'
         
-    - name: Install Cordova and available platform
+    - name: Install Cordova and platform
       run: |
-        # 使用 Cordova 11（最新稳定版）
+        # 使用 Cordova 11
         npm install -g cordova@11.0.0
         
         # 清理
         rm -rf platforms/android plugins
         
-        # 添加可用的 Android 平台版本
-        echo "尝试添加 Android 平台..."
-        cordova platform add android@10.1.1 || \
-        cordova platform add android@9.1.0 || \
-        cordova platform add android@9.0.0 || \
-        cordova platform add android
+        # 添加 Android 平台
+        cordova platform add android@10.1.1
         
-    - name: Remove system Gradle and force compatible version
+    - name: Install compatible Gradle
       run: |
-        echo "🗑️ 移除系统 Gradle..."
-        # 移除系统安装的 Gradle
+        echo "📦 安装兼容的 Gradle 版本..."
+        
+        # 移除系统 Gradle
         sudo rm -f /usr/bin/gradle
         sudo rm -rf /usr/share/gradle*
         
-        # 根据 Android 平台版本安装兼容的 Gradle
-        if cordova platform | grep -q "android@10"; then
-          echo "📦 安装 Gradle 7.5（Android 10 兼容）"
-          wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
-          unzip -q gradle-7.5-bin.zip
-          sudo mv gradle-7.5 /opt/gradle
-          sudo ln -s /opt/gradle/bin/gradle /usr/bin/gradle
-        elif cordova platform | grep -q "android@9"; then
-          echo "📦 安装 Gradle 6.9（Android 9 兼容）"
-          wget -q https://services.gradle.org/distributions/gradle-6.9-bin.zip
-          unzip -q gradle-6.9-bin.zip
-          sudo mv gradle-6.9 /opt/gradle
-          sudo ln -s /opt/gradle/bin/gradle /usr/bin/gradle
-        else
-          echo "📦 安装 Gradle 6.5（默认兼容）"
-          wget -q https://services.gradle.org/distributions/gradle-6.5-bin.zip
-          unzip -q gradle-6.5-bin.zip
-          sudo mv gradle-6.5 /opt/gradle
-          sudo ln -s /opt/gradle/bin/gradle /usr/bin/gradle
-        fi
+        # 下载 Gradle 7.5（与 Java 11 和 Cordova Android 10 兼容）
+        wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
+        unzip -q gradle-7.5-bin.zip
+        sudo mv gradle-7.5 /opt/gradle
+        sudo ln -s /opt/gradle/bin/gradle /usr/bin/gradle
         
-        echo "✅ Gradle 安装完成"
+        echo "✅ 安装 Gradle 7.5 完成"
         gradle --version
         
     - name: Build Android APK
