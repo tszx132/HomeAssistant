@@ -15,8 +15,9 @@
     
     <platform name="android">
         <!-- Android 版本配置 -->
-        <preference name="android-minSdkVersion" value="33" />
-        <preference name="android-targetSdkVersion" value="34" />
+        <preference name="android-minSdkVersion" value="24" />
+        <preference name="android-targetSdkVersion" value="33" />
+        <preference name="android-compileSdkVersion" value="33" />
         
         <!-- 应用偏好 -->
         <preference name="Orientation" value="portrait" />
