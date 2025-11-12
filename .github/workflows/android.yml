@@ -11,16 +11,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install correct Java version
+    - name: Install Java 17 for Android SDK
       run: |
-        # 安装 Java 11（Gradle 6.5 兼容的版本）
+        # 安装 Java 17（Android SDK 需要）
         sudo apt-get update
-        sudo apt-get install -y openjdk-11-jdk
+        sudo apt-get install -y openjdk-17-jdk
         
         # 设置 JAVA_HOME
-        echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
+        echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
         
-    - name: Setup Android SDK
+    - name: Setup Android SDK with Java 17
       run: |
         # 下载 Android SDK
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
@@ -35,10 +35,20 @@ jobs:
         SDK_DIR=$(dirname "$SDKMANAGER")
         echo "$SDK_DIR" >> $GITHUB_PATH
         
-        # 安装 Android 组件
+        # 安装 Android 组件（使用 Java 17）
         yes | "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools" "platforms;android-30" "build-tools;30.0.3"
+        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.0"
         echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
+        
+    - name: Switch to Java 11 for Cordova build
+      run: |
+        # 安装 Java 11（Cordova 构建需要）
+        sudo apt-get install -y openjdk-11-jdk
+        
+        # 切换到 Java 11
+        echo "JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64" >> $GITHUB_ENV
+        sudo update-alternatives --set java /usr/lib/jvm/java-11-openjdk-amd64/bin/java
+        sudo update-alternatives --set javac /usr/lib/jvm/java-11-openjdk-amd64/bin/javac
         
     - uses: actions/setup-node@v4
       with:
@@ -53,17 +63,17 @@ jobs:
         rm -rf platforms/android plugins
         
         # 添加 Android 平台
-        cordova platform add android@10.1.1
+        cordova platform add android@12.0.0
         
-    - name: Install compatible Gradle
+    - name: Install compatible Gradle for Java 11
       run: |
-        echo "📦 安装兼容的 Gradle 版本..."
+        echo "📦 安装与 Java 11 兼容的 Gradle..."
         
         # 移除系统 Gradle
         sudo rm -f /usr/bin/gradle
         sudo rm -rf /usr/share/gradle*
         
-        # 下载 Gradle 7.5（与 Java 11 和 Cordova Android 10 兼容）
+        # 下载 Gradle 7.5（与 Java 11 兼容）
         wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
         unzip -q gradle-7.5-bin.zip
         sudo mv gradle-7.5 /opt/gradle
