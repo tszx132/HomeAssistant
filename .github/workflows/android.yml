@@ -16,28 +16,67 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         
-    - name: Setup Android
+    - name: Setup Android SDK
       run: |
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        mkdir -p android-sdk
-        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/cmdline-tools
-        mv android-sdk/cmdline-tools/cmdline-tools android-sdk/cmdline-tools/latest
+        # 下载命令行工具
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+        
+        # 创建目录结构
+        mkdir -p android-sdk/cmdline-tools/latest
+        
+        # 解压到正确位置
+        unzip -q cmdline-tools.zip -d android-sdk/cmdline-tools/latest/
+        
+        # 设置环境变量
         echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
+        
+        # 清理临时文件
+        rm -f cmdline-tools.zip
+        
+        # 显示目录结构
+        echo "Android SDK 目录结构:"
+        find android-sdk -type f -name "sdkmanager" | head -5
+        
+    - name: Setup Android PATH
+      run: |
+        # 将 Android 工具添加到 PATH
         echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        yes | sdkmanager --licenses
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
+        echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
+        
+        # 验证 sdkmanager 是否可用
+        echo "检查 sdkmanager:"
+        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager --version || echo "sdkmanager 检查失败"
+        
+    - name: Accept Android licenses
+      run: |
+        # 使用完整路径运行 sdkmanager
+        yes | $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+    - name: Install Android components
+      run: |
+        # 使用完整路径安装组件
+        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33"
+        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0"
         
     - uses: actions/setup-node@v4
       with:
         node-version: '20'
         
-    - name: Install and build
+    - name: Install Cordova
       run: |
-        npm install -g cordova
-        cordova platform add android
+        npm install -g cordova@latest
+        
+    - name: Add Android platform
+      run: |
+        cordova platform add android@12.0.0
+        
+    - name: Build Android APK
+      run: |
         cordova build android --release
         
     - uses: actions/upload-artifact@v4
       with:
-        name: app
+        name: home-assistant-app
         path: platforms/android/app/build/outputs/apk/release/*.apk
