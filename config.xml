@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.homeassistant.mobile" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>Home Assistant</name>
+    <description>Home Assistant 移动客户端</description>
+    <author email="support@home-assistant.io" href="https://www.home-assistant.io">Home Assistant Team</author>
+    
+    <!-- 内容设置为本地页面 -->
+    <content src="index.html" />
+    
+    <!-- 访问权限 -->
+    <access origin="*" />
+    <allow-intent href="http://*/*" />
+    <allow-intent href="https://*/*" />
+    
+    <platform name="android">
+        <!-- Android 版本配置 -->
+        <preference name="android-minSdkVersion" value="33" />
+        <preference name="android-targetSdkVersion" value="34" />
+        
+        <!-- 应用偏好 -->
+        <preference name="Orientation" value="portrait" />
+        <preference name="BackgroundColor" value="#121212" />
+    </platform>
+    
+    <!-- 插件 -->
+    <plugin name="cordova-plugin-inappbrowser" spec="^5.0.0" />
+    <plugin name="cordova-plugin-network-information" spec="^3.0.0" />
+    <plugin name="cordova-plugin-statusbar" spec="^3.0.0" />
+</widget>

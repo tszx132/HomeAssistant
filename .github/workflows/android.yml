@@ -1,0 +1,101 @@
+name: Build Cordova Android APK
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [published]
+
+env:
+  NODE_VERSION: '18'
+  JAVA_VERSION: '11'
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 步骤 1: 检出代码
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # 步骤 2: 设置 Java 环境
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+
+    # 步骤 3: 设置 Android SDK
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    # 步骤 4: 设置 Node.js 环境
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    # 步骤 5: 安装项目依赖
+    - name: Install dependencies
+      run: |
+        npm ci
+        npm list cordova || true
+
+    # 步骤 6: 安装 Cordova (如果未在 package.json 中)
+    - name: Install Cordova globally
+      run: npm install -g cordova@latest
+
+    # 步骤 7: 添加 Android 平台
+    - name: Add Android platform
+      run: |
+        cordova platform remove android --nosave || true
+        cordova platform add android@latest
+
+    # 步骤 8: 构建 Android APK (调试版本)
+    - name: Build Android Debug APK
+      run: |
+        cordova build android
+      continue-on-error: false
+
+    # 步骤 9: 构建 Android APK (发布版本)
+    - name: Build Android Release APK
+      run: |
+        cordova build android --release
+      continue-on-error: false
+
+    # 步骤 10: 上传调试 APK 作为制品
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-debug-apk
+        path: |
+          platforms/android/app/build/outputs/apk/debug/*.apk
+          platforms/android/app/build/outputs/bundle/debug/*.aab
+        retention-days: 7
+
+    # 步骤 11: 上传发布 APK 作为制品
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-release-apk
+        path: |
+          platforms/android/app/build/outputs/apk/release/*.apk
+          platforms/android/app/build/outputs/bundle/release/*.aab
+        retention-days: 30
+
+    # 步骤 12: 显示构建信息
+    - name: Display build info
+      run: |
+        echo "=== 构建完成 ==="
+        echo "调试 APK 位置:"
+        find platforms/android/app/build/outputs/apk/debug -name "*.apk" | head -5
+        echo "发布 APK 位置:"
+        find platforms/android/app/build/outputs/apk/release -name "*.apk" | head -5
+        echo "=== 构建日志结束 ==="

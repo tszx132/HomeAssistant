@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#121212">
+    <title>Home Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #121212;
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 连接配置界面 */
+        .config-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 30px;
+            background: #41bdf5;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: white;
+        }
+        
+        .config-form {
+            width: 100%;
+            max-width: 400px;
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .form-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+            color: #41bdf5;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #cccccc;
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #2d2d2d;
+            border: 2px solid #404040;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #41bdf5;
+        }
+        
+        .form-input::placeholder {
+            color: #888;
+        }
+        
+        .form-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 6px;
+        }
+        
+        .connect-button {
+            width: 100%;
+            padding: 14px;
+            background: #41bdf5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+        
+        .connect-button:hover {
+            background: #3298d6;
+        }
+        
+        .connect-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .quick-connect {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .quick-connect-title {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        
+        .quick-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        
+        .quick-button {
+            padding: 10px;
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            color: #cccccc;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .quick-button:hover {
+            background: #41bdf5;
+            color: white;
+            border-color: #41bdf5;
+        }
+        
+        /* 加载界面 */
+        .loading-container {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #121212;
+            padding: 40px 20px;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #2d2d2d;
+            border-top: 4px solid #41bdf5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        .loading-text {
+            font-size: 16px;
+            color: #ffffff;
+            text-align: center;
+        }
+        
+        .loading-subtext {
+            font-size: 14px;
+            color: #888;
+            margin-top: 8px;
+        }
+        
+        /* 错误界面 */
+        .error-container {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #121212;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .error-title {
+            font-size: 20px;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+        
+        .error-message {
+            font-size: 14px;
+            color: #cccccc;
+            margin-bottom: 24px;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+        
+        .error-details {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 20px;
+            background: #1e1e1e;
+            padding: 12px;
+            border-radius: 6px;
+            max-width: 300px;
+            word-break: break-all;
+        }
+        
+        .retry-button {
+            padding: 12px 24px;
+            background: #41bdf5;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 状态栏 */
+        .status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #41bdf5;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            text-align: center;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <!-- 状态栏 -->
+    <div class="status-bar" id="statusBar">
+        正在连接到 Home Assistant...
+    </div>
+    
+    <div class="app-container">
+        <!-- 连接配置界面 -->
+        <div class="config-container" id="configContainer">
+            <div class="logo">
+                HA
+            </div>
+            <div class="config-form">
+                <div class="form-title">连接 Home Assistant</div>
+                
+                <div class="form-group">
+                    <label class="form-label">Home Assistant 地址</label>
+                    <input type="text" class="form-input" id="haUrl" 
+                           placeholder="https://your-homeassistant.duckdns.org"
+                           value="http://homeassistant.local:8123">
+                    <div class="form-hint">
+                        支持本地地址 (homeassistant.local:8123) 或远程地址 (your-domain.duckdns.org)
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">长期访问令牌 (可选)</label>
+                    <input type="password" class="form-input" id="haToken" 
+                           placeholder="输入长期访问令牌">
+                    <div class="form-hint">
+                        在 Home Assistant 配置 → 用户 → 长期访问令牌中创建
+                    </div>
+                </div>
+                
+                <button class="connect-button" onclick="connectToHomeAssistant()">
+                    连接到 Home Assistant
+                </button>
+                
+                <div class="quick-connect">
+                    <div class="quick-connect-title">快速连接</div>
+                    <div class="quick-buttons">
+                        <button class="quick-button" onclick="setQuickUrl('homeassistant.local:8123')">
+                            本地 HA
+                        </button>
+                        <button class="quick-button" onclick="setQuickUrl('192.168.1.100:8123')">
+                            本地 IP
+                        </button>
+                        <button class="quick-button" onclick="setQuickUrl('hassio.local:8123')">
+                            Hass.io
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 加载界面 -->
+        <div class="loading-container" id="loadingContainer">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loadingText">正在连接到 Home Assistant</div>
+            <div class="loading-subtext" id="loadingSubtext">请稍候...</div>
+        </div>
+        
+        <!-- 错误界面 -->
+        <div class="error-container" id="errorContainer">
+            <div class="error-icon">⚠️</div>
+            <div class="error-title" id="errorTitle">连接失败</div>
+            <div class="error-message" id="errorMessage">
+                无法连接到 Home Assistant 实例
+            </div>
+            <div class="error-details" id="errorDetails"></div>
+            <button class="retry-button" onclick="retryConnection()">重试连接</button>
+            <button class="retry-button" onclick="showConfig()" style="background: #666; margin-top: 8px;">
+                修改配置
+            </button>
+        </div>
+    </div>
+
+    <script src="cordova.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
