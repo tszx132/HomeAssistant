@@ -17,40 +17,17 @@ jobs:
         sudo apt-get install -y openjdk-17-jdk
         echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
         
-    - name: Setup Android SDK with correct build tools
+    - name: Setup Android SDK
       run: |
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/
-        
-        echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
-        
-        SDKMANAGER=$(find android-sdk -name "sdkmanager" -type f | head -1)
-        SDK_DIR=$(dirname "$SDKMANAGER")
-        echo "$SDK_DIR" >> $GITHUB_PATH
+        # 使用系统自带的 SDK，统一环境变量
+        echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
         
         # 接受许可证
-        yes | "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         
-        # 安装平台工具
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools"
-        echo "✅ platform-tools 安装完成"
-        
-        # 安装 Android 平台
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platforms;android-33"
-        echo "✅ Android 33 平台安装完成"
-        
-        # 安装多个构建工具版本以确保兼容性
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;33.0.2"
-        echo "✅ 构建工具 33.0.2 安装完成"
-        
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;33.0.0"
-        echo "✅ 构建工具 33.0.0 安装完成"
-        
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;31.0.0"
-        echo "✅ 构建工具 31.0.0 安装完成"
-        
-        # 添加 platform-tools 到 PATH
-        echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
+        # 安装必要的组件
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+        echo "✅ Android SDK 组件安装完成"
         
     - uses: actions/setup-node@v4
       with:
@@ -65,26 +42,6 @@ jobs:
         
         # 添加 Android 平台
         cordova platform add android@latest
-        
-    - name: Set Android build tools version
-      run: |
-        echo "🔧 设置 Android 构建工具版本..."
-        
-        if [ -d "platforms/android" ]; then
-          cd platforms/android
-          
-          # 设置使用可用的构建工具版本
-          if [ -d "$ANDROID_SDK_ROOT/build-tools/33.0.2" ]; then
-            echo "使用构建工具 33.0.2"
-          elif [ -d "$ANDROID_SDK_ROOT/build-tools/33.0.0" ]; then
-            echo "使用构建工具 33.0.0"
-          elif [ -d "$ANDROID_SDK_ROOT/build-tools/31.0.0" ]; then
-            echo "使用构建工具 31.0.0"
-          else
-            echo "可用的构建工具:"
-            ls -la "$ANDROID_SDK_ROOT/build-tools/" || echo "未找到构建工具目录"
-          fi
-        fi
         
     - name: Build Android APK
       run: |
