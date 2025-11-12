@@ -18,7 +18,7 @@ on:
 
 env:
   NODE_VERSION: '18'
-  JAVA_VERSION: '17'  # 改为 Java 17
+  JAVA_VERSION: '17'
   CORDOVA_VERSION: '11.0.0'
   ANDROID_PLATFORM_VERSION: '10.1.2'
   ANDROID_API_LEVEL: '33'
@@ -41,7 +41,7 @@ jobs:
         java-version: ${{ env.JAVA_VERSION }}
         distribution: 'temurin'
 
-    # 步骤 3: 设置 Android SDK
+    # 步骤 3: 设置 Android SDK（修复路径问题）
     - name: Setup Android SDK
       run: |
         echo "📱 设置 Android SDK 环境..."
@@ -49,25 +49,32 @@ jobs:
         # 下载 Android 命令行工具
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
         
-        # 创建目录结构
-        mkdir -p android-sdk
-        unzip -q cmdline-tools.zip -d android-sdk/
+        # 创建正确的目录结构
+        mkdir -p android-sdk/cmdline-tools/latest
+        unzip -q cmdline-tools.zip -d android-sdk/cmdline-tools/latest/
         
         # 设置环境变量
-        echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
-        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/bin" >> $GITHUB_PATH
+        echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
+        
+        # 将工具添加到 PATH
+        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
         
         # 清理临时文件
         rm -f cmdline-tools.zip
         
         echo "✅ Android SDK 目录设置完成"
+        
+        # 验证安装
+        echo "验证 SDK 管理器..."
+        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager --version || echo "版本检查失败，但继续..."
 
     # 步骤 4: 接受 Android 许可证
     - name: Accept Android licenses
       run: |
         echo "📝 接受 Android SDK 许可证..."
-        yes | sdkmanager --licenses || echo "许可证可能已接受"
+        # 使用完整路径和 SDK root 参数
+        yes | $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
         echo "✅ 许可证接受完成"
 
     # 步骤 5: 安装 Android 组件
@@ -75,16 +82,20 @@ jobs:
       run: |
         echo "📦 安装 Android 组件..."
         
+        # 使用完整路径和 SDK root 参数安装组件
+        SDKMANAGER="$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager"
+        SDK_ROOT="$GITHUB_WORKSPACE/android-sdk"
+        
         # 安装平台工具
-        sdkmanager "platform-tools"
+        $SDKMANAGER --sdk_root=$SDK_ROOT "platform-tools"
         echo "✅ platform-tools 安装完成"
         
         # 安装 Android 平台
-        sdkmanager "platforms;android-${{ env.ANDROID_API_LEVEL }}"
+        $SDKMANAGER --sdk_root=$SDK_ROOT "platforms;android-${{ env.ANDROID_API_LEVEL }}"
         echo "✅ Android ${{ env.ANDROID_API_LEVEL }} 平台安装完成"
         
         # 安装构建工具
-        sdkmanager "build-tools;${{ env.ANDROID_BUILD_TOOLS }}"
+        $SDKMANAGER --sdk_root=$SDK_ROOT "build-tools;${{ env.ANDROID_BUILD_TOOLS }}"
         echo "✅ 构建工具 ${{ env.ANDROID_BUILD_TOOLS }} 安装完成"
         
         # 将 platform-tools 添加到 PATH
@@ -122,33 +133,7 @@ jobs:
         cordova platform add android@${{ env.ANDROID_PLATFORM_VERSION }}
         echo "✅ Android 平台添加完成"
 
-    # 步骤 10: 应用构建修复
-    - name: Apply build fixes
-      run: |
-        echo "🔧 应用构建修复..."
-        
-        # 确保 platforms/android 目录存在
-        if [ -d "platforms/android" ]; then
-          # 创建自定义主题文件修复资源链接问题
-          mkdir -p platforms/android/app/src/main/res/values
-          
-          cat > platforms/android/app/src/main/res/values/styles.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-        <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        </style>
-        </resources>
-        EOF
-          
-          echo "✅ 自定义主题文件创建完成"
-        else
-          echo "⚠️ platforms/android 目录不存在，跳过主题修复"
-        fi
-
-    # 步骤 11: 构建 APK
+    # 步骤 10: 构建 APK
     - name: Build APK
       run: |
         echo "🏗️ 开始构建 APK..."
@@ -157,7 +142,7 @@ jobs:
         
         echo "✅ 构建完成"
 
-    # 步骤 12: 验证构建结果
+    # 步骤 11: 验证构建结果
     - name: Verify build
       run: |
         echo "🔍 验证构建结果..."
@@ -179,7 +164,7 @@ jobs:
           exit 1
         fi
 
-    # 步骤 13: 上传 APK 制品
+    # 步骤 12: 上传 APK 制品
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
@@ -187,7 +172,7 @@ jobs:
         path: platforms/android/app/build/outputs/apk/release/*.apk
         retention-days: 30
 
-    # 步骤 14: 生成构建报告
+    # 步骤 13: 生成构建报告
     - name: Generate build report
       if: always()
       run: |
