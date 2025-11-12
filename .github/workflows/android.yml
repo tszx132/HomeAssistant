@@ -11,93 +11,39 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - uses: actions/setup-java@v4
-      with:
-        java-version: '8'
-        distribution: 'temurin'
-        
-    - name: Setup Android SDK
+    - name: Setup environment
       run: |
-        # 下载兼容 Java 8 的命令行工具
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8092744_latest.zip
+        # 安装必要软件
+        sudo apt-get update
+        sudo apt-get install -y openjdk-11-jdk wget unzip
         
+        # 下载 Android SDK
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         mkdir -p android-sdk
-        unzip -q commandlinetools-linux-8092744_latest.zip -d android-sdk/
-        
-        # 查找 sdkmanager
-        SDKMANAGER_PATH=$(find android-sdk -name "sdkmanager" -type f | head -1)
-        echo "SDKMANAGER_PATH=$SDKMANAGER_PATH" >> $GITHUB_ENV
+        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/
         
         # 设置环境变量
         echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
-        SDKMANAGER_DIR=$(dirname "$SDKMANAGER_PATH")
-        echo "$SDKMANAGER_DIR" >> $GITHUB_PATH
-        
-    - name: Install Android components
-      run: |
-        # 接受许可证
-        yes | sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
+        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/bin" >> $GITHUB_PATH
         
         # 安装 Android 组件
-        sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools"
-        sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk "platforms;android-29"
-        sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;29.0.3"
-        
+        yes | sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
+        sdkmanager --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools" "platforms;android-31" "build-tools;31.0.0"
         echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
         
-    - uses: actions/setup-node@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        node-version: '16'
+        node-version: '18'
         
-    - name: Install Cordova and Android platform
+    - name: Build app
       run: |
-        # 使用 Cordova 10
-        npm install -g cordova@10.0.0
-        
-        # 清理旧平台
-        rm -rf platforms/android plugins
-        
-        # 添加 Android 平台
-        cordova platform add android@9.1.0
-        
-        echo "✅ Android 平台添加完成"
-        
-    - name: Setup Gradle wrapper
-      run: |
-        echo "🔧 设置 Gradle wrapper..."
-        
-        if [ -d "platforms/android" ]; then
-          cd platforms/android
-          
-          # 确保目录存在
-          mkdir -p gradle/wrapper
-          
-          # 创建 Gradle wrapper 配置
-          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-          
-          echo "✅ Gradle wrapper 配置完成"
-          
-          # 验证配置
-          echo "Gradle wrapper 配置内容:"
-          cat gradle/wrapper/gradle-wrapper.properties
-        else
-          echo "❌ platforms/android 目录不存在"
-          exit 1
-        fi
-        
-    - name: Build Android APK
-      run: |
-        echo "🏗️ 构建 Android APK..."
+        # 安装 Cordova 并构建
+        npm install -g cordova
+        cordova platform add android
         cordova build android --release
         
     - uses: actions/upload-artifact@v4
       with:
         name: home-assistant-app
         path: platforms/android/app/build/outputs/apk/release/*.apk
-        retention-days: 30
