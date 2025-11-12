@@ -19,15 +19,15 @@ jobs:
         
     - name: Setup Android SDK
       run: |
-        # 使用系统自带的 SDK，统一环境变量
+        # 使用系统自带的 SDK
         echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> $GITHUB_ENV
         
         # 接受许可证
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
         
-        # 安装必要的组件
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-        echo "✅ Android SDK 组件安装完成"
+        # 安装 Android 34 相关组件
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+        echo "✅ Android SDK 34 组件安装完成"
         
     - uses: actions/setup-node@v4
       with:
@@ -37,16 +37,18 @@ jobs:
       run: |
         npm install -g cordova@latest
         
-        # 清理
+        # 清理旧的平台和插件
         rm -rf platforms/android plugins
         
-        # 添加 Android 平台
-        cordova platform add android@latest
+        # 添加 Android 平台（使用最新版本）
+        cordova platform add android@12.0.0
         
     - name: Build Android APK
       run: |
         echo "🏗️ 构建 Android APK..."
-        cordova build android --release --verbose
+        # 清理并构建
+        cordova clean
+        cordova build android --release -- --versionCode=1
         
     - uses: actions/upload-artifact@v4
       with:
