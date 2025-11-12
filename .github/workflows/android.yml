@@ -79,7 +79,7 @@ jobs:
           distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
-EOF
+          EOF
           
           echo "✅ Gradle wrapper 配置完成"
           
