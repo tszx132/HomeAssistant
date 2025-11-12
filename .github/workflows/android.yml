@@ -14,47 +14,73 @@ jobs:
     - name: Install Java
       run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk
         
-    - name: Download and setup Android SDK
+    - name: Download and extract Android SDK
       run: |
-        # 下载 Android 命令行工具
+        echo "📥 下载 Android SDK..."
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         
-        # 创建正确的目录结构
-        mkdir -p android-sdk/cmdline-tools/latest
-        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/cmdline-tools/latest/
+        echo "📁 解压文件..."
+        mkdir -p android-sdk
+        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/
         
-        # 验证文件结构
-        echo "Android SDK 目录内容:"
+        echo "🔍 检查解压后的文件结构..."
+        echo "=== 完整文件列表 ==="
+        find android-sdk -type f | sort
+        echo "=== 查找 sdkmanager ==="
         find android-sdk -name "sdkmanager" -type f
         
-        # 设置环境变量
+        echo "📝 设置环境变量..."
         echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
         
-    - name: Setup Android PATH
+    - name: Find and setup sdkmanager
       run: |
-        # 将 Android 工具添加到 PATH
-        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
+        echo "🔎 查找 sdkmanager 实际位置..."
         
-        # 验证 sdkmanager 是否可用
-        echo "检查 sdkmanager 路径:"
-        which sdkmanager || echo "sdkmanager 不在 PATH 中"
-        echo "直接路径测试:"
-        $GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager --version || echo "直接路径失败"
+        # 查找 sdkmanager
+        SDKMANAGER_PATH=$(find android-sdk -name "sdkmanager" -type f | head -1)
+        
+        if [ -z "$SDKMANAGER_PATH" ]; then
+          echo "❌ 未找到 sdkmanager，显示详细结构:"
+          find android-sdk -type d | sort
+          find android-sdk -type f | grep -v ".zip" | sort
+          exit 1
+        fi
+        
+        echo "✅ 找到 sdkmanager: $SDKMANAGER_PATH"
+        
+        # 设置执行权限
+        chmod +x "$SDKMANAGER_PATH"
+        
+        # 获取目录路径并添加到 PATH
+        SDKMANAGER_DIR=$(dirname "$SDKMANAGER_PATH")
+        echo "📁 sdkmanager 目录: $SDKMANAGER_DIR"
+        echo "$SDKMANAGER_DIR" >> $GITHUB_PATH
+        
+        # 保存路径供后续使用
+        echo "SDKMANAGER_PATH=$SDKMANAGER_PATH" >> $GITHUB_ENV
+        
+        # 测试运行
+        echo "🧪 测试 sdkmanager..."
+        "$SDKMANAGER_PATH" --version || echo "版本检查失败但继续"
         
     - name: Install Android components
       run: |
-        # 使用完整路径运行 sdkmanager
-        SDKMANAGER="$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin/sdkmanager"
+        echo "📦 安装 Android 组件..."
+        
+        # 使用找到的 sdkmanager 路径
+        SDKMANAGER_PATH=$(find android-sdk -name "sdkmanager" -type f | head -1)
+        echo "使用: $SDKMANAGER_PATH"
         
         # 接受许可证
-        yes | $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
+        yes | "$SDKMANAGER_PATH" --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
         
-        # 安装 Android 组件
-        $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools"
-        $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk "platforms;android-31"
-        $SDKMANAGER --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;31.0.0"
+        # 安装组件
+        "$SDKMANAGER_PATH" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools"
+        "$SDKMANAGER_PATH" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platforms;android-31"
+        "$SDKMANAGER_PATH" --sdk_root=$GITHUB_WORKSPACE/android-sdk "build-tools;31.0.0"
+        
+        # 添加 platform-tools 到 PATH
+        echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
         
     - uses: actions/setup-node@v4
       with:
