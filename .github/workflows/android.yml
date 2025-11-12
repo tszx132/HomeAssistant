@@ -1,273 +1,43 @@
-name: Build Home Assistant Android App
+name: Build Home Assistant App
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'release'
-        type: choice
-        options:
-        - debug
-        - release
-
-env:
-  NODE_VERSION: '20'
-  JAVA_VERSION: '17'
-  CORDOVA_ANDROID_VERSION: '12.0.0'
-  ANDROID_API_LEVEL: '33'
-  ANDROID_BUILD_TOOLS: '33.0.0'
+    branches: [ main ]
 
 jobs:
-  validate:
-    name: Validate Project
+  build:
     runs-on: ubuntu-latest
-    outputs:
-      valid: ${{ steps.validate.outputs.valid }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Validate Cordova project
-      id: validate
-      run: |
-        if [ -f "config.xml" ] && [ -d "www" ]; then
-          echo "valid=true" >> $GITHUB_OUTPUT
-          echo "✅ Valid Cordova project structure"
-        else
-          echo "valid=false" >> $GITHUB_OUTPUT
-          echo "❌ Invalid Cordova project structure"
-          exit 1
-        fi
-
-  build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
-    needs: validate
-    if: needs.validate.outputs.valid == 'true'
     
-    strategy:
-      matrix:
-        build-type: [debug, release]
-
     steps:
-    # 步骤 1: 检出代码
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    
+    - uses: actions/setup-java@v4
       with:
-        fetch-depth: 0
-
-    # 步骤 2: 设置 Java 17 环境
-    - name: Setup Java JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
+        java-version: '17'
         distribution: 'temurin'
-
-    # 步骤 3: 手动设置 Android SDK（避免兼容性问题）
-    - name: Setup Android SDK
+        
+    - name: Setup Android
       run: |
-        echo "🔄 设置 Android SDK 环境..."
-        
-        # 下载命令行工具
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
-        
-        # 创建目录结构
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
         mkdir -p android-sdk
-        unzip -q cmdline-tools.zip -d android-sdk/cmdline-tools
+        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/cmdline-tools
         mv android-sdk/cmdline-tools/cmdline-tools android-sdk/cmdline-tools/latest
-        
-        # 设置环境变量
         echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
         echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
-        echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
+        yes | sdkmanager --licenses
+        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
         
-        # 清理临时文件
-        rm -f cmdline-tools.zip
-        
-        echo "✅ Android SDK 目录设置完成"
-
-    # 步骤 4: 接受 Android 许可证
-    - name: Accept Android licenses
-      run: |
-        echo "📝 接受 Android SDK 许可证..."
-        yes | sdkmanager --licenses || echo "许可证已接受"
-        echo "✅ 许可证接受完成"
-
-    # 步骤 5: 安装 Android 组件
-    - name: Install Android components
-      run: |
-        echo "📦 安装 Android 组件..."
-        
-        # 安装平台工具
-        sdkmanager "platform-tools"
-        echo "✅ 安装 platform-tools 完成"
-        
-        # 安装 Android 平台（使用 API 33 避免兼容性问题）
-        sdkmanager "platforms;android-${{ env.ANDROID_API_LEVEL }}"
-        echo "✅ 安装 Android ${{ env.ANDROID_API_LEVEL }} 平台完成"
-        
-        # 安装构建工具
-        sdkmanager "build-tools;${{ env.ANDROID_BUILD_TOOLS }}"
-        echo "✅ 安装构建工具 ${{ env.ANDROID_BUILD_TOOLS }} 完成"
-        
-        # 安装其他有用工具
-        sdkmanager "tools"
-        echo "✅ 安装 SDK 工具完成"
-
-    # 步骤 6: 设置 Node.js 环境
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - uses: actions/setup-node@v4
       with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-
-    # 步骤 7: 安装 Cordova
-    - name: Install Cordova
+        node-version: '20'
+        
+    - name: Install and build
       run: |
-        echo "🔧 安装 Cordova..."
-        npm install -g cordova@latest
-        echo "✅ Cordova 版本: $(cordova --version)"
-
-    # 步骤 8: 清理和准备平台
-    - name: Clean and prepare platform
-      run: |
-        echo "🧹 清理旧平台文件..."
+        npm install -g cordova
+        cordova platform add android
+        cordova build android --release
         
-        # 移除旧平台和插件
-        cordova platform remove android --nosave || true
-        rm -rf platforms/android plugins
-        
-        echo "✅ 清理完成"
-
-    # 步骤 9: 添加 Android 平台
-    - name: Add Android platform
-      run: |
-        echo "📱 添加 Android 平台..."
-        cordova platform add android@${{ env.CORDOVA_ANDROID_VERSION }}
-        echo "✅ Android 平台添加完成"
-
-    # 步骤 10: 应用构建修复
-    - name: Apply build fixes
-      run: |
-        echo "🔧 应用构建修复..."
-        
-        # 确保 platforms/android 目录存在
-        if [ -d "platforms/android" ]; then
-          # 创建自定义主题文件修复资源链接问题
-          mkdir -p platforms/android/app/src/main/res/values
-          
-          cat > platforms/android/app/src/main/res/values/styles.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your theme here. -->
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-    </style>
-</resources>
-EOF
-          
-          echo "✅ 自定义主题文件创建完成"
-        else
-          echo "⚠️ platforms/android 目录不存在，跳过主题修复"
-        fi
-
-    # 步骤 11: 构建 APK
-    - name: Build APK
-      run: |
-        echo "🏗️ 开始构建 APK (${{ matrix.build-type }})..."
-        
-        if [ "${{ matrix.build-type }}" = "release" ]; then
-          cordova build android --release
-        else
-          cordova build android
-        fi
-        
-        echo "✅ ${{ matrix.build-type }} 构建完成"
-
-    # 步骤 12: 验证构建结果
-    - name: Verify build
-      run: |
-        echo "🔍 验证构建结果..."
-        
-        APK_PATH="platforms/android/app/build/outputs/apk/${{ matrix.build-type }}"
-        
-        if [ -d "$APK_PATH" ]; then
-          echo "📁 APK 文件位置: $APK_PATH"
-          ls -la "$APK_PATH"/*.apk 2>/dev/null || echo "❌ 未找到 APK 文件"
-          
-          # 显示 APK 信息
-          for apk in "$APK_PATH"/*.apk; do
-            if [ -f "$apk" ]; then
-              echo "📦 生成的 APK: $(basename "$apk")"
-              echo "   📏 文件大小: $(du -h "$apk" | cut -f1)"
-            fi
-          done
-        else
-          echo "❌ APK 目录不存在: $APK_PATH"
-          exit 1
-        fi
-
-    # 步骤 13: 上传 APK 制品
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v4
       with:
-        name: home-assistant-${{ matrix.build-type }}-apk
-        path: |
-          platforms/android/app/build/outputs/apk/${{ matrix.build-type }}/*.apk
-        retention-days: ${{ matrix.build-type == 'release' && 90 || 30 }}
-        if-no-files-found: error
-
-    # 步骤 14: 生成构建报告
-    - name: Generate build report
-      if: always()
-      run: |
-        echo "📊 === 构建报告 ==="
-        echo "🏷️ 工作流: ${{ github.workflow }}"
-        echo "🔢 运行 ID: ${{ github.run_id }}"
-        echo "📝 提交: ${{ github.sha }}"
-        echo "🔄 构建类型: ${{ matrix.build-type }}"
-        echo "💻 运行器: ${{ runner.os }}"
-        echo "🔧 Node.js: $(node --version)"
-        echo "☕ Java: $(java -version 2>&1 | head -1)"
-        echo "📱 Cordova: $(cordova --version)"
-        echo "📦 Android SDK: ${{ env.ANDROID_API_LEVEL }}"
-        echo "⏱️ 时间: $(date)"
-        
-        if [ "${{ job.status }}" = "success" ]; then
-          echo "✅ 构建状态: 成功"
-        else
-          echo "❌ 构建状态: 失败"
-        fi
-        echo "📊 === 报告结束 ==="
-
-  notify:
-    name: Notify Build Status
-    runs-on: ubuntu-latest
-    needs: build-android
-    if: always()
-    
-    steps:
-    - name: Build status notification
-      run: |
-        echo "📢 构建通知"
-        echo "工作流: ${{ github.workflow }}"
-        echo "状态: ${{ needs.build-android.result }}"
-        echo "详情: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        
-        if [ "${{ needs.build-android.result }}" = "success" ]; then
-          echo "🎉 构建成功！APK 文件已上传到制品"
-          echo "📥 下载链接: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        else
-          echo "❌ 构建失败，请检查日志"
-          exit 1
-        fi
+        name: app
+        path: platforms/android/app/build/outputs/apk/release/*.apk
