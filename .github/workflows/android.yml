@@ -49,54 +49,50 @@ jobs:
       with:
         node-version: '16'
         
-    - name: Install Cordova and compatible Android platform
+    - name: Install Cordova and available Android platform
       run: |
-        # 使用经过验证的稳定版本
-        npm install -g cordova@9.0.0
+        # 使用 Cordova 10（稳定且可用的版本）
+        npm install -g cordova@10.0.0
         
         # 清理旧平台
         rm -rf platforms/android plugins
         
-        # 添加兼容的 Android 平台
-        cordova platform add android@8.1.0
+        # 添加可用的 Android 平台版本
+        echo "尝试添加 Android 平台..."
+        cordova platform add android@9.1.0 || \
+        cordova platform add android@9.0.0 || \
+        cordova platform add android@8.1.0 || \
+        cordova platform add android
         
     - name: Force compatible Gradle version
       run: |
-        echo "🔧 强制使用兼容的 Gradle 版本..."
-        cd platforms/android
+        echo "🔧 设置兼容的 Gradle 版本..."
         
-        # 下载并设置 Gradle 7.5（与 Cordova Android 8.1.0 兼容）
-        wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
-        unzip -q gradle-7.5-bin.zip
-        ./gradle-7.5/bin/gradle wrapper --gradle-version 7.5
+        if [ -d "platforms/android" ]; then
+          cd platforms/android
+          
+          # 设置 Gradle 7.5（与 Cordova Android 9+ 兼容）
+          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+        distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip
+        zipStoreBase=GRADLE_USER_HOME
+        zipStorePath=wrapper/dists
+        EOF
+          
+          echo "✅ Gradle wrapper 配置完成"
+        else
+          echo "❌ platforms/android 目录不存在"
+          exit 1
+        fi
         
-        # 验证 Gradle 版本
-        ./gradlew --version
-        
-    - name: Build with compatible Gradle
+    - name: Build Android APK
       run: |
-        echo "🏗️ 使用兼容的 Gradle 构建 APK..."
-        
-        # 使用项目本地的 Gradle wrapper
-        cd platforms/android
-        ./gradlew build
-        
-    - name: Find and upload APK
-      run: |
-        echo "📦 查找生成的 APK 文件..."
-        
-        # 查找所有 APK 文件
-        find platforms/android -name "*.apk" -type f | head -10
-        
-        # 复制 APK 文件到标准位置以便上传
-        mkdir -p dist
-        find platforms/android/app/build/outputs -name "*.apk" -exec cp {} dist/ \;
-        
-        echo "找到的 APK 文件:"
-        ls -la dist/ || echo "未找到 APK 文件"
+        echo "🏗️ 构建 Android APK..."
+        cordova build android --release
         
     - uses: actions/upload-artifact@v4
       with:
         name: home-assistant-app
-        path: dist/*.apk
+        path: platforms/android/app/build/outputs/apk/release/*.apk
         retention-days: 30
