@@ -12,69 +12,57 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Install Java
-      run: sudo apt-get update && sudo apt-get install -y openjdk-11-jdk
+      run: sudo apt-get update && sudo apt-get install -y openjdk-8-jdk
         
     - name: Setup Android SDK
       run: |
-        # 下载 Android SDK
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        # 使用较旧的 Android SDK 版本
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-8092744_latest.zip
         
-        # 解压
-        unzip -q commandlinetools-linux-11076708_latest.zip -d android-sdk/
+        unzip -q commandlinetools-linux-8092744_latest.zip -d android-sdk/
         
-        # 设置环境变量
         echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
         
-        # 查找 sdkmanager
         SDKMANAGER=$(find android-sdk -name "sdkmanager" -type f | head -1)
         echo "SDKMANAGER=$SDKMANAGER" >> $GITHUB_ENV
         SDK_DIR=$(dirname "$SDKMANAGER")
         echo "$SDK_DIR" >> $GITHUB_PATH
         
-        # 安装 Android 工具
+        # 安装较旧的 Android 组件
         yes | "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk --licenses
-        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+        "$SDKMANAGER" --sdk_root=$GITHUB_WORKSPACE/android-sdk "platform-tools" "platforms;android-28" "build-tools;28.0.3"
         echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
         
     - uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '14'
         
-    - name: Install Cordova and compatible platform
+    - name: Install Cordova and platform
       run: |
-        # 使用 Cordova 11 和兼容的 Android 平台
-        npm install -g cordova@11.0.0
+        # 使用 Cordova 8 和 Android 7（最稳定）
+        npm install -g cordova@8.1.0
         
-        # 清理旧平台
+        # 清理
         rm -rf platforms/android plugins
         
-        # 添加兼容的 Android 平台版本
-        cordova platform add android@10.1.1
+        # 添加 Android 平台
+        cordova platform add android@7.1.4
         
-    - name: Fix Gradle compatibility
+    - name: Remove system Gradle and force compatible version
       run: |
-        echo "🔧 修复 Gradle 兼容性..."
+        echo "🗑️ 移除系统 Gradle..."
+        # 移除系统安装的 Gradle
+        sudo rm -f /usr/bin/gradle
+        sudo rm -rf /usr/share/gradle*
         
-        if [ -d "platforms/android" ]; then
-          cd platforms/android
-          
-          # 创建兼容的 Gradle wrapper
-          mkdir -p gradle/wrapper
-          
-          # 设置 Gradle 7.5（与 Cordova Android 10 兼容）
-          cat > gradle/wrapper/gradle-wrapper.properties << 'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-7.5-all.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-        EOF
-          
-          echo "✅ Gradle wrapper 配置完成"
-        else
-          echo "❌ platforms/android 目录不存在"
-          exit 1
-        fi
+        # 下载并安装兼容的 Gradle
+        wget -q https://services.gradle.org/distributions/gradle-6.5-bin.zip
+        unzip -q gradle-6.5-bin.zip
+        sudo mv gradle-6.5 /opt/gradle
+        sudo ln -s /opt/gradle/bin/gradle /usr/bin/gradle
+        
+        echo "✅ 安装 Gradle 6.5 完成"
+        gradle --version
         
     - name: Build Android APK
       run: |
